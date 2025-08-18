@@ -1,0 +1,89 @@
+# InkwaveDocNet-Go 应用配置文件
+# 这是一个配置文件模板，请复制为 config.yaml 并填入真实的配置信息
+
+server:
+  host: "localhost"
+  port: "8080"
+  mode: "debug"  # debug, release, test
+
+database:
+  host: "your-database-host"  # 请填入您的数据库主机地址
+  port: "3306"
+  username: "your-database-username"  # 请填入您的数据库用户名
+  password: "your-database-password"  # 请填入您的数据库密码
+  dbname: "your-database-name"  # 请填入您的数据库名称
+  charset: "utf8mb4"
+
+redis:
+  host: "your-redis-host"  # 请填入您的Redis主机地址
+  port: "6379"
+  password: "your-redis-password"  # 请填入您的Redis密码
+  db: 1
+
+app:
+  name: "DocNet"
+  version: "1.0.0"
+  context_timeout: 30  # seconds
+  jwt_secret: "your-super-secret-jwt-key-change-in-production"  # 请使用复杂的JWT密钥
+  jwt_expire_hours: 240  # JWT token 过期时间（小时）
+  log_level: "debug"    # debug, info, warn, error
+  enable_cors: true
+  enable_rate_limit: true
+  enable_websocket: true
+  max_file_size: 10485760  # 文件上传大小限制 10MB
+
+# 邮件配置
+email:
+  smtp_host: "smtp.example.com"  # 请填入您的SMTP服务器地址
+  smtp_port: 587
+  username: "your-email@example.com"  # 请填入您的邮箱地址
+  password: "your-email-password"  # 请填入您的邮箱密码或应用专用密码
+  from_email: "your-email@example.com"  # 请填入发件人邮箱
+  from_name: "Your App Name"  # 请填入发件人名称
+  template_dir: "./templates/email"
+  # 新增配置项
+  enable_tls: true
+  connection_timeout: 30  # 连接超时时间（秒）
+  send_timeout: 60       # 发送超时时间（秒）
+  max_retries: 3         # 最大重试次数
+  retry_interval: 5      # 重试间隔（秒）
+
+# OAuth 认证配置
+oauth:
+  github:
+    client_id: "your-github-client-id"  # 请填入您的GitHub OAuth App Client ID
+    client_secret: "your-github-client-secret"  # 请填入您的GitHub OAuth App Client Secret
+    redirect_url: "http://localhost:3000/auth/callback"  # 前端回调URL
+    api_callback_url: "http://localhost:8080/api/v1/auth/github/callback"  # 后端API回调URL
+    scopes:
+      - "user:email"    # 获取用户邮箱权限
+      - "read:user"     # 读取用户基本信息权限
+    # GitHub API 相关配置
+    api_base_url: "https://api.github.com"
+    auth_url: "https://github.com/login/oauth/authorize"
+    token_url: "https://github.com/login/oauth/access_token"
+    timeout: 30       # API 请求超时时间（秒）
+
+
+# 认证相关配置
+auth:
+  # 验证码配置
+  verification_code:
+    length: 6                    # 验证码长度
+    expire_minutes: 10           # 验证码过期时间（分钟）
+    send_interval_seconds: 60    # 发送间隔（秒）
+    max_attempts: 5              # 最大尝试次数
+    
+  # 会话配置
+  session:
+    max_sessions_per_user: 5     # 每用户最大会话数
+    cleanup_interval_hours: 24   # 会话清理间隔（小时）
+    extend_on_use: true          # 使用时是否延长会话
+    
+  # 安全配置
+  security:
+    password_min_length: 8       # 密码最小长度
+    password_require_special: true  # 是否要求特殊字符
+    max_login_attempts: 5        # 最大登录尝试次数
+    lockout_duration_minutes: 30 # 锁定时长（分钟）
+    enable_2fa: false           # 是否启用双因素认证

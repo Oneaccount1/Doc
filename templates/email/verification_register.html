@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>注册验证码 - 墨协</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #4CAF50;
+            margin-bottom: 10px;
+        }
+        .title {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .code-container {
+            background-color: #f8f9fa;
+            border: 2px dashed #4CAF50;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .verification-code {
+            font-size: 32px;
+            font-weight: bold;
+            color: #4CAF50;
+            letter-spacing: 4px;
+            margin: 10px 0;
+        }
+        .content {
+            font-size: 16px;
+            line-height: 1.8;
+            margin-bottom: 20px;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+            color: #856404;
+        }
+        .footer {
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+            margin-top: 30px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+        .button {
+            display: inline-block;
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">墨协</div>
+            <div class="title">欢迎注册墨协账户</div>
+        </div>
+        
+        <div class="content">
+            <p>您好！</p>
+            <p>感谢您选择墨协！为了确保账户安全，请使用以下验证码完成注册：</p>
+        </div>
+        
+        <div class="code-container">
+            <div>您的注册验证码是：</div>
+            <div class="verification-code">{{.code}}</div>
+            <div style="color: #666; font-size: 14px;">请在10分钟内使用此验证码</div>
+        </div>
+        
+        <div class="content">
+            <p>请将此验证码输入到注册页面以完成账户创建。</p>
+            <p>如果您没有尝试注册墨协账户，请忽略此邮件。</p>
+        </div>
+        
+        <div class="warning">
+            <strong>安全提醒：</strong>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>验证码有效期为10分钟</li>
+                <li>请勿将验证码告诉他人</li>
+                <li>如有疑问，请联系客服</li>
+            </ul>
+        </div>
+        
+        <div class="footer">
+            <p>此邮件由系统自动发送，请勿回复。</p>
+            <p>如有问题，请访问 <a href="#" style="color: #4CAF50;">帮助中心</a> 或联系客服。</p>
+            <p style="margin-top: 20px; color: #999;">
+                © 2024 墨协. 保留所有权利。
+            </p>
+        </div>
+    </div>
+</body>
+</html>
