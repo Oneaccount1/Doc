@@ -2,8 +2,8 @@ package rest
 
 import (
 	"DOC/internal/rest/dto"
+	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -65,12 +65,18 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	if err != nil {
 		// 根据不同的错误类型返回相应的 HTTP 状态码
 		switch err {
-		case domain.ErrUserAlreadyExist:
-			ResponseConflict(c, "用户已存在")
+		case domain.ErrInvalidUserName:
+			ResponseBadRequest(c, "用户名无效")
 		case domain.ErrInvalidUserEmail:
 			ResponseBadRequest(c, "邮箱格式无效")
 		case domain.ErrInvalidUserPassword:
 			ResponseBadRequest(c, "密码格式无效")
+		case domain.ErrUserAlreadyExist:
+			ResponseConflict(c, "用户已存在")
+		case domain.ErrUserEmailExists:
+			ResponseBadRequest(c, "邮箱已存在，请使用邮箱登录")
+		case domain.ErrInternalServerError:
+			ResponseInternalServerError(c, "服务器内部错误")
 		default:
 			ResponseInternalServerError(c, "注册失败")
 		}
@@ -119,6 +125,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			ResponseUnauthorized(c, "邮箱或密码错误")
 		case domain.ErrUserNotActive:
 			ResponseForbidden(c, "账户已被禁用")
+		case domain.ErrInternalServerError:
+			ResponseInternalServerError(c, "服务器内部错误")
 		default:
 			ResponseInternalServerError(c, "登录失败")
 		}
@@ -168,6 +176,8 @@ func (h *AuthHandler) SendEmailCode(c *gin.Context) {
 			ResponseBadRequest(c, "邮箱格式无效")
 		case domain.ErrVerificationCodeSendTooFrequent:
 			ResponseTooManyRequests(c, "验证码发送过于频繁，请稍后再试")
+		case domain.ErrInternalServerError:
+			ResponseInternalServerError(c, "服务器内部错误")
 		default:
 			ResponseInternalServerError(c, "发送验证码失败")
 		}
@@ -219,6 +229,8 @@ func (h *AuthHandler) EmailLogin(c *gin.Context) {
 			ResponseBadRequest(c, "验证码错误")
 		case domain.ErrUserNotActive:
 			ResponseForbidden(c, "账户已被禁用")
+		case domain.ErrInternalServerError:
+			ResponseInternalServerError(c, "服务器内部错误")
 		default:
 			ResponseInternalServerError(c, "登录失败")
 		}
@@ -267,8 +279,12 @@ func (h *AuthHandler) VerifyToken(c *gin.Context) {
 		switch err {
 		case domain.ErrInvalidToken:
 			ResponseUnauthorized(c, "令牌无效")
+		case domain.ErrSessionNotFound:
+			ResponseBadRequest(c, "令牌不存在")
 		case domain.ErrTokenExpired:
 			ResponseUnauthorized(c, "令牌已过期")
+		case domain.ErrUserNotActive:
+			ResponseForbidden(c, "账户已被禁用")
 		default:
 			ResponseInternalServerError(c, "验证失败")
 		}
@@ -311,21 +327,19 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		switch err {
 		case domain.ErrInvalidToken:
 			ResponseUnauthorized(c, "刷新令牌无效")
+		case domain.ErrSessionNotFound:
+			ResponseBadRequest(c, "会话无效")
 		case domain.ErrTokenExpired:
 			ResponseUnauthorized(c, "刷新令牌已过期")
+		case domain.ErrUserNotActive:
+			ResponseForbidden(c, "用户被禁止登录")
+		case domain.ErrInternalServerError:
+			ResponseInternalServerError(c, "内部服务错误")
 		default:
 			ResponseInternalServerError(c, "刷新失败")
 		}
 		return
 	}
-
-	// 3. 获取用户信息（从 token 中解析）
-	_, err = h.authUsecase.ValidateToken(c.Request.Context(), tokenResponse.AccessToken)
-	if err != nil {
-		ResponseInternalServerError(c, "获取用户信息失败")
-		return
-	}
-
 	// 4. 设置新的认证cookie
 	h.setAuthCookie(c, tokenResponse.AccessToken, 24*60*60)
 
@@ -372,8 +386,12 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 	user, err := h.userUsecase.GetUserByID(c.Request.Context(), uid)
 	if err != nil {
 		switch err {
+		case domain.ErrInvalidUser:
+			ResponseBadRequest(c, "用户ID无效")
 		case domain.ErrUserNotFound:
 			ResponseNotFound(c, "用户不存在")
+		case domain.ErrInternalServerError:
+			ResponseInternalServerError(c, "内部服务器错误")
 		default:
 			ResponseInternalServerError(c, "获取用户信息失败")
 		}
@@ -398,24 +416,23 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 // @Router /api/v1/auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
 	// 1. 获取当前令牌
-	token := c.GetHeader("Authorization")
-	if token != "" && strings.HasPrefix(token, "Bearer ") {
-		token = token[7:] // 去掉 "Bearer " 前缀
-		// 2. 调用业务逻辑层退出登录（将令牌加入黑名单）
-		if err := h.authUsecase.Logout(c.Request.Context(), token); err != nil {
-			ResponseInternalServerError(c, "退出失败")
-			return
-		}
+
+	var token string
+	if value, ok := c.Get("token"); ok {
+		token = value.(string)
 	}
 
+	// 2. 撤销会话
+	if token != "" {
+		if err := h.authUsecase.Logout(c.Request.Context(), token); err != nil && !errors.Is(err, domain.ErrSessionNotFound) {
+			ResponseInternalServerError(c, "服务器内部错误")
+		}
+	}
 	// 3. 清除认证相关的cookie
 	h.clearAuthCookie(c)
 
 	// 4. 返回成功响应
-	ResponseOK(c, "退出成功", map[string]interface{}{
-		"message": "已成功退出登录",
-		"success": true,
-	})
+	ResponseOK(c, "退出成功", nil)
 }
 
 // LogoutAll 退出所有登录处理器
@@ -453,10 +470,7 @@ func (h *AuthHandler) LogoutAll(c *gin.Context) {
 	h.clearAuthCookie(c)
 
 	// 4. 返回成功响应
-	ResponseOK(c, "退出成功", map[string]interface{}{
-		"message": "已成功退出所有设备登录",
-		"success": true,
-	})
+	ResponseOK(c, "退出成功", nil)
 }
 
 // === GitHub OAuth 相关处理器 ===
@@ -514,8 +528,9 @@ func (h *AuthHandler) GitHubCallback(c *gin.Context) {
 	c.Redirect(302, frontendURL)
 }
 
+// GitHubBind
+// todo 实现用户绑定Github账号
 func (h *AuthHandler) GitHubBind(c *gin.Context) {
-	// todo
 }
 
 // === Cookie 处理相关的辅助方法 ===

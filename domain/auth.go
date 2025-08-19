@@ -172,6 +172,7 @@ type AuthRepository interface {
 	// 会话管理
 	StoreSession(ctx context.Context, session *AuthSession) error
 	GetSessionByToken(ctx context.Context, token string) (*AuthSession, error)
+	GetSessionByRefreshToken(ctx context.Context, token string) (*AuthSession, error)
 	GetSessionsByUserID(ctx context.Context, userID int64) ([]*AuthSession, error)
 	UpdateSession(ctx context.Context, session *AuthSession) error
 	RevokeSession(ctx context.Context, sessionID int64) error

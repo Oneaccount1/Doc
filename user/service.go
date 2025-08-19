@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -169,8 +170,14 @@ func (s *userService) GetUserByID(ctx context.Context, userID int64) (*domain.Us
 	if userID <= 0 {
 		return nil, domain.ErrInvalidUser
 	}
-
-	return s.userRepo.GetByID(ctx, userID)
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, domain.ErrInternalServerError
+	}
+	return user, nil
 }
 
 // GetUserByEmail 根据邮箱获取用户

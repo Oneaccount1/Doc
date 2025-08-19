@@ -72,7 +72,7 @@ func (u *User) Validate() error {
 		return ErrInvalidUser
 	}
 	if len(u.Username) < 3 || len(u.Username) > 50 {
-		return ErrInvalidUser
+		return ErrInvalidUserName
 	}
 
 	// 验证邮箱

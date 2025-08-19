@@ -64,17 +64,17 @@ func (s *authService) Register(ctx context.Context, user *domain.User) (*domain.
 	if existUser, err := s.userRepo.GetByEmail(ctx, user.Email); err != nil {
 		if !errors.Is(err, domain.ErrUserNotFound) {
 			fmt.Printf("检查邮箱唯一性失败: %v", err)
-			return nil, domain.ErrInternalError
+			return nil, domain.ErrInternalServerError
 		}
 	} else if existUser != nil {
-		return nil, domain.ErrUserAlreadyExist
+		return nil, domain.ErrUserEmailExists
 	}
 
 	// 3. 检查用户名唯一性
 	if existUser, err := s.userRepo.GetByUsername(ctx, user.Username); err != nil {
 		if !errors.Is(err, domain.ErrUserNotFound) {
 			fmt.Printf("检查用户名唯一性失败: %v", err)
-			return nil, domain.ErrInternalError
+			return nil, domain.ErrInternalServerError
 		}
 	} else if existUser != nil {
 		return nil, domain.ErrUserAlreadyExist
@@ -89,7 +89,7 @@ func (s *authService) Register(ctx context.Context, user *domain.User) (*domain.
 	// 5. 保存用户到数据库
 	if err := s.userRepo.Store(ctx, user); err != nil {
 		fmt.Printf("保存用户失败: %v", err)
-		return nil, domain.ErrInternalError
+		return nil, domain.ErrInternalServerError
 	}
 
 	// 6. 生成令牌和创建会话
@@ -113,7 +113,7 @@ func (s *authService) Login(ctx context.Context, email, password string) (*domai
 			return nil, domain.ErrInvalidCredentials
 		}
 		fmt.Printf("查找用户失败: %v", err)
-		return nil, domain.ErrInternalError
+		return nil, domain.ErrInternalServerError
 	}
 
 	// 3. 检查用户状态
@@ -144,7 +144,7 @@ func (s *authService) VerifyCode(ctx context.Context, email, code string) (*doma
 
 	// 1. 参数验证
 	if email == "" || code == "" {
-		return nil, domain.ErrInvalidVerificationCode
+		return nil, domain.ErrInvalidCredentials
 	}
 
 	// 2. 验证邮箱格式
@@ -156,7 +156,7 @@ func (s *authService) VerifyCode(ctx context.Context, email, code string) (*doma
 	storedCode, err := s.authCache.GetEmailCode(ctx, email)
 	if err != nil {
 		if !errors.Is(err, domain.ErrVerificationCodeNotFound) {
-			return nil, domain.ErrInternalError
+			return nil, domain.ErrInternalServerError
 		}
 		// 日志打印
 		fmt.Printf("%v", err)
@@ -187,11 +187,11 @@ func (s *authService) VerifyCode(ctx context.Context, email, code string) (*doma
 
 			if err := s.userRepo.Store(ctx, user); err != nil {
 				fmt.Printf("%v\n", err)
-				return nil, domain.ErrInternalError
+				return nil, domain.ErrInternalServerError
 			}
 		} else {
 			fmt.Printf("%v\n", err)
-			return nil, domain.ErrInternalError
+			return nil, domain.ErrInternalServerError
 		}
 	}
 
@@ -223,7 +223,7 @@ func (s *authService) SendVerificationCode(ctx context.Context, email string) er
 	// 2. 检查发送间隔
 	if canSend, err := s.authCache.CheckSendInterval(ctx, email); err != nil {
 		fmt.Printf("检查发送间隔失败: %v", err)
-		return domain.ErrInternalError
+		return domain.ErrInternalServerError
 	} else if !canSend {
 		return domain.ErrVerificationCodeSendTooFrequent
 	}
@@ -232,13 +232,13 @@ func (s *authService) SendVerificationCode(ctx context.Context, email string) er
 	code, err := utils.GenerateRandomCode(6)
 	if err != nil {
 		fmt.Printf("生成验证码失败: %w", err)
-		return domain.ErrInternalError
+		return domain.ErrInternalServerError
 	}
 
 	// 4. 存储验证码到缓存
 	if err := s.authCache.StoreEmailCode(ctx, email, code, 10*time.Minute); err != nil {
 		fmt.Printf("存储验证码失败: %w", err)
-		return domain.ErrInternalError
+		return domain.ErrInternalServerError
 	}
 
 	// 5. 设置发送间隔
@@ -249,7 +249,7 @@ func (s *authService) SendVerificationCode(ctx context.Context, email string) er
 	// 6. 发送邮件
 	if err := s.emailService.SendVerificationEmail(ctx, email, code); err != nil {
 		fmt.Printf("发送邮件失败: %v", err)
-		return domain.ErrInternalError
+		return domain.ErrInternalServerError
 	}
 
 	return nil
@@ -261,14 +261,14 @@ func (s *authService) createAuthSession(ctx context.Context, user *domain.User, 
 	accessToken, err := s.jwtManager.GenerateToken(user.ID, user.Username, user.Email)
 	if err != nil {
 		fmt.Printf("生成令牌失败: %v", err)
-		return nil, domain.ErrInternalError
+		return nil, domain.ErrInternalServerError
 	}
 
 	// 2. 生成刷新令牌（简化处理，使用相同方法）
 	refreshToken, err := s.jwtManager.GenerateToken(user.ID, user.Username, user.Email)
 	if err != nil {
 		fmt.Printf("生成刷新令牌失败: %v", err)
-		return nil, domain.ErrInternalError
+		return nil, domain.ErrInternalServerError
 	}
 
 	// 3. 创建会话记录
@@ -284,7 +284,7 @@ func (s *authService) createAuthSession(ctx context.Context, user *domain.User, 
 	// 4. 保存会话
 	if err := s.authRepo.StoreSession(ctx, session); err != nil {
 		fmt.Printf("保存会话失败%v\n", err)
-		return nil, domain.ErrInternalError
+		return nil, domain.ErrInternalServerError
 	}
 
 	// 5. 返回认证响应
@@ -310,6 +310,9 @@ func (s *authService) ValidateToken(ctx context.Context, accessToken string) (*d
 	// 2. 检查会话是否存在且有效
 	session, err := s.authRepo.GetSessionByToken(ctx, accessToken)
 	if err != nil {
+		if !errors.Is(err, domain.ErrSessionNotFound) {
+			return nil, domain.ErrInternalServerError
+		}
 		return nil, domain.ErrSessionNotFound
 	}
 
@@ -321,7 +324,7 @@ func (s *authService) ValidateToken(ctx context.Context, accessToken string) (*d
 	user, err := s.userRepo.GetByID(ctx, claims.UserID)
 	if err != nil {
 		fmt.Printf("获取用户信息失败: %v", err)
-		return nil, domain.ErrInternalError
+		return nil, domain.ErrInternalServerError
 	}
 
 	// 4. 检查用户状态
@@ -350,20 +353,14 @@ func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (*d
 	}
 
 	// 2. 查找会话
-	sessions, err := s.authRepo.GetSessionsByUserID(ctx, claims.UserID)
+	session, err := s.authRepo.GetSessionByRefreshToken(ctx, refreshToken)
 	if err != nil {
+		if !errors.Is(err, domain.ErrSessionNotFound) {
+			return nil, domain.ErrInternalServerError
+		}
 		return nil, domain.ErrSessionNotFound
 	}
-
-	var session *domain.AuthSession
-	for _, s := range sessions {
-		if s.RefreshToken == refreshToken && s.IsActive() {
-			session = s
-			break
-		}
-	}
-
-	if session == nil {
+	if session.IsExpired() {
 		return nil, domain.ErrSessionExpired
 	}
 
@@ -371,7 +368,7 @@ func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (*d
 	user, err := s.userRepo.GetByID(ctx, claims.UserID)
 	if err != nil {
 		fmt.Printf("获取用户信息失败: %v", err)
-		return nil, domain.ErrInternalError
+		return nil, domain.ErrInternalServerError
 	}
 
 	if !user.CanLogin() {
@@ -382,7 +379,7 @@ func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (*d
 	accessToken, err := s.jwtManager.GenerateToken(user.ID, user.Username, user.Email)
 	if err != nil {
 		fmt.Printf("生成令牌失败: %v", err)
-		return nil, domain.ErrInternalError
+		return nil, domain.ErrInternalServerError
 	}
 
 	// 5. 更新会话
@@ -390,7 +387,7 @@ func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (*d
 	session.UpdateLastUsed()
 	if err := s.authRepo.UpdateSession(ctx, session); err != nil {
 		fmt.Printf("更新会话失败: %v", err)
-		return nil, domain.ErrInternalError
+		return nil, domain.ErrInternalServerError
 	}
 
 	return &domain.TokenResponse{
@@ -407,12 +404,16 @@ func (s *authService) Logout(ctx context.Context, sessionToken string) error {
 	// 查找并撤销会话
 	session, err := s.authRepo.GetSessionByToken(ctx, sessionToken)
 	if err != nil {
-		return domain.ErrSessionNotFound
+		if errors.Is(err, domain.ErrSessionNotFound) {
+			return domain.ErrSessionNotFound
+		}
+		return domain.ErrInternalServerError
+
 	}
 	if err := s.authRepo.RevokeSession(ctx, session.ID); err != nil {
 		if !errors.Is(err, domain.ErrSessionNotFound) {
 			fmt.Printf("%v", err)
-			return domain.ErrInternalError
+			return domain.ErrInternalServerError
 		}
 		return domain.ErrSessionNotFound
 	}
@@ -426,7 +427,7 @@ func (s *authService) LogoutAll(ctx context.Context, userID int64) error {
 
 	if err := s.authRepo.RevokeAllUserSessions(ctx, userID); err != nil {
 		fmt.Printf("%v\n", err)
-		return domain.ErrInternalError
+		return domain.ErrInternalServerError
 	}
 	return nil
 }
@@ -515,21 +516,21 @@ func (s *authService) HandleOAuthCallback(ctx context.Context, provider domain.A
 	accessToken, err := s.exchangeCodeForToken(githubCfg, code)
 	if err != nil {
 		fmt.Printf("交换访问令牌失败: %v", err)
-		return nil, domain.ErrInternalError
+		return nil, domain.ErrInternalServerError
 	}
 
 	// 步骤2: 获取用户信息
 	userInfo, err := s.fetchGitHubUserInfo(githubCfg, accessToken)
 	if err != nil {
 		fmt.Printf("获取用户信息失败: %v", err)
-		return nil, domain.ErrInternalError
+		return nil, domain.ErrInternalServerError
 	}
 
 	// 步骤3: 查找或创建用户
 	user, err := s.findOrCreateOAuthUser(ctx, userInfo, provider)
 	if err != nil {
 		fmt.Printf("处理用户失败: %v", err)
-		return nil, domain.ErrInternalError
+		return nil, domain.ErrInternalServerError
 	}
 
 	// 步骤4: 检查用户状态
@@ -565,7 +566,7 @@ func (s *authService) GetUserSessions(ctx context.Context, userID int64) ([]*dom
 
 	authSession, err := s.authRepo.GetSessionsByUserID(ctx, userID)
 	if err != nil {
-		return nil, domain.ErrInternalError
+		return nil, domain.ErrInternalServerError
 	}
 	return authSession, nil
 }
@@ -579,7 +580,7 @@ func (s *authService) RevokeSession(ctx context.Context, userID int64, sessionID
 		if errors.Is(err, domain.ErrSessionNotFound) {
 			return domain.ErrSessionNotFound
 		}
-		return domain.ErrInternalError
+		return domain.ErrInternalServerError
 	}
 
 	return nil

@@ -17,6 +17,7 @@ var (
 	// 用户相关错误
 	ErrUserNotFound        = errors.New("user not found")
 	ErrUserAlreadyExist    = errors.New("user already exist")
+	ErrUserEmailExists     = errors.New("user email already exist")
 	ErrInvalidUserEmail    = errors.New("invalid user email")
 	ErrInvalidGithubId     = errors.New("invalid githubID")
 	ErrInvalidUserPassword = errors.New("invalid user password")
@@ -151,7 +152,4 @@ var (
 	ErrNotSpaceMember        = errors.New("not space member")
 	ErrInvalidSpace          = errors.New("invalid space")
 	ErrSpacePermissionDenied = errors.New("space permission denied")
-
-	// 系统内错误
-	ErrInternalError = errors.New("internal error")
 )

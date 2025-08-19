@@ -20,6 +20,21 @@ func NewMysqlAuthRepository(db *gorm.DB) domain.AuthRepository {
 		db: db,
 	}
 }
+
+func (m *mysqlAuthRepository) GetSessionByRefreshToken(ctx context.Context, token string) (*domain.AuthSession, error) {
+	var session domain.AuthSession
+
+	if err := m.db.WithContext(ctx).
+		Where("refresh_token = ? AND status = ?", token, domain.SessionStatusActive).
+		First(&session).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrSessionNotFound
+		}
+		return nil, err
+	}
+
+	return &session, nil
+}
 func (m *mysqlAuthRepository) StoreSession(ctx context.Context, session *domain.AuthSession) error {
 	// 设置创建和更新时间
 	now := time.Now()
@@ -43,11 +58,6 @@ func (m *mysqlAuthRepository) GetSessionByToken(ctx context.Context, token strin
 			return nil, domain.ErrSessionNotFound
 		}
 		return nil, err
-	}
-
-	// 检查会话是否过期
-	if session.IsExpired() {
-		return nil, domain.ErrSessionExpired
 	}
 
 	return &session, nil
