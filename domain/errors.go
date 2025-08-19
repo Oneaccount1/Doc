@@ -38,6 +38,7 @@ var (
 	ErrOAuthCodeInvalid                = errors.New("oauth code invalid")
 	ErrOAuthStateNotFound              = errors.New("oauth state not found")
 	ErrOAuthStateMismatch              = errors.New("oauth state mismatch")
+	ErrOauthNotSupported               = errors.New("oauth not supported")
 	ErrOAuthUserInfoFailed             = errors.New("failed to get oauth user info")
 	ErrGitHubAccountLinked             = errors.New("github account already linked to another user")
 
