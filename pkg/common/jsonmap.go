@@ -1,10 +1,13 @@
-package utils
+package common
 
 import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 )
+
+// 存放 domain层的值对象
+// 略显不规范，但代价可接受
 
 type JSONMap map[string]interface{}
 
@@ -74,5 +77,5 @@ func NewJSONMap(data map[string]interface{}) JSONMap {
 	if data == nil {
 		return make(JSONMap)
 	}
-	return JSONMap(data)
+	return data
 }

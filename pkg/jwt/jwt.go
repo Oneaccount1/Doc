@@ -67,6 +67,7 @@ func (j *JWTManager) GenerateToken(userID int64, username, email string) (string
 
 	// 使用密钥签名 token
 	tokenString, err := token.SignedString(j.secretKey)
+
 	if err != nil {
 		return "", err
 	}

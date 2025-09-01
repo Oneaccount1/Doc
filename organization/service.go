@@ -1,6 +1,7 @@
 package organization
 
 import (
+	"DOC/pkg/common"
 	"context"
 	"errors"
 	"fmt"
@@ -272,7 +273,7 @@ func (s *organizationService) InviteMember(ctx context.Context, userID, orgID in
 
 	// 使用模板发送邮件
 	subject := fmt.Sprintf("邀请您加入组织 - %s", "墨协") // 可以后续从组织信息中获取组织名称
-	if err := s.emailService.SendOrganizationInvitationEmail(ctx, email, subject, utils.NewJSONMap(templateData)); err != nil {
+	if err := s.emailService.SendOrganizationInvitationEmail(ctx, email, subject, common.NewJSONMap(templateData)); err != nil {
 		return fmt.Errorf("发送邀请邮件失败: %w", err)
 	}
 

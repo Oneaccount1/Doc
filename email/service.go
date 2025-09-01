@@ -1,8 +1,9 @@
 package email
 
 import (
-	"DOC/pkg/utils"
+	"DOC/pkg/common"
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -34,52 +35,12 @@ func NewEmailService(emailRepo domain.EmailRepository, emailSender domain.EmailS
 	}
 }
 
-// SendEmail 发送邮件
-// 实现邮件发送的完整业务流程
-// 业务流程：
-// 1. 验证邮件实体
-// 2. 保存邮件到数据库
-// 3. 标记为发送中
-// 4. 调用邮件发送服务
-// 5. 更新发送状态
-func (s *emailService) SendEmail(ctx context.Context, email *domain.Email) error {
-	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
-	defer cancel()
-
-	// 1. 验证邮件实体
-	if err := email.Validate(); err != nil {
-		return fmt.Errorf("邮件验证失败: %w", err)
-	}
-
-	// 2. 设置默认值
-	if email.Status == 0 {
-		email.Status = domain.EmailStatusPending
-	}
-	if email.Priority == 0 {
-		email.Priority = domain.EmailPriorityNormal
-	}
-	if email.MaxRetries == 0 {
-		email.MaxRetries = 3
-	}
-
-	// 3. 保存邮件到数据库
-	if err := s.emailRepo.Store(ctx, email); err != nil {
-		return fmt.Errorf("保存邮件失败: %w", err)
-	}
-
-	// 4. 异步发送邮件
-	go s.sendEmailAsync(email)
-
-	return nil
-}
-
 // SendVerificationEmail 发送验证码邮件
 // 发送用户注册或登录验证码邮件
 func (s *emailService) SendVerificationEmail(ctx context.Context, to, code string) error {
-	var subject, template string
-	subject = "验证码"
-	template = "verification_default"
-	//
+	//var subject, template string
+	//subject = "验证码"
+	// todo 目前只实现 默认验证码发送
 	//switch codeType {
 	//case domain.VerificationCodeTypeRegister:
 	//	subject = "欢迎注册 - 验证码"
@@ -91,15 +52,14 @@ func (s *emailService) SendVerificationEmail(ctx context.Context, to, code strin
 	//	subject = "验证码"
 	//	template = "verification_default"
 	//}
-	data := utils.JSONMap{
-		"code": code,
-	}
 
 	email := &domain.Email{
-		To:         to,
-		Subject:    subject,
-		Data:       data,
-		Template:   template,
+		To:       to,
+		Subject:  "验证码",
+		Template: domain.EmailTemplateVerificationDefault,
+		Data: common.JSONMap{
+			"code": code,
+		},
 		Type:       domain.EmailTypeVerification,
 		Status:     domain.EmailStatusPending,
 		Priority:   domain.EmailPriorityHigh, // 验证码邮件高优先级
@@ -108,19 +68,19 @@ func (s *emailService) SendVerificationEmail(ctx context.Context, to, code strin
 		UpdatedAt:  time.Now(),
 	}
 
-	return s.SendEmail(ctx, email)
+	return s.sendEmail(ctx, email)
 }
 
 // SendWelcomeEmail 发送欢迎邮件
 // 用户注册成功后发送欢迎邮件
 func (s *emailService) SendWelcomeEmail(ctx context.Context, to, username string) error {
-	data := utils.JSONMap{
+	data := common.JSONMap{
 		"username": username,
 	}
 	email := &domain.Email{
 		To:         to,
 		Subject:    "欢迎加入墨协！",
-		Template:   "welcome",
+		Template:   domain.EmailTemplateWelcome,
 		Data:       data,
 		Type:       domain.EmailTypeWelcome,
 		Status:     domain.EmailStatusPending,
@@ -130,58 +90,30 @@ func (s *emailService) SendWelcomeEmail(ctx context.Context, to, username string
 		UpdatedAt:  time.Now(),
 	}
 
-	return s.SendEmail(ctx, email)
+	return s.sendEmail(ctx, email)
 }
 
 // SendNotificationEmail 发送通知邮件
 // 发送系统通知邮件
 func (s *emailService) SendNotificationEmail(ctx context.Context, to, subject, content string) error {
-	data := utils.JSONMap{
-		"content": content,
-	}
-	email := &domain.Email{
-		To:         to,
-		Subject:    subject,
-		Data:       data,
-		Type:       domain.EmailTypeNotification,
-		Status:     domain.EmailStatusPending,
-		Priority:   domain.EmailPriorityNormal,
-		MaxRetries: 3,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
-	}
-
-	return s.SendEmail(ctx, email)
+	// todo
+	return nil
 }
 
 // SendSystemEmail 发送系统邮件
 // 发送系统级别的重要邮件
 func (s *emailService) SendSystemEmail(ctx context.Context, to, subject, content string) error {
-	data := utils.JSONMap{
-		"content": content,
-	}
-	email := &domain.Email{
-		To:         to,
-		Subject:    subject,
-		Data:       data,
-		Type:       domain.EmailTypeSystem,
-		Status:     domain.EmailStatusPending,
-		Priority:   domain.EmailPriorityHigh, // 系统邮件高优先级
-		MaxRetries: 5,                        // 系统邮件更多重试次数
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
-	}
-
-	return s.SendEmail(ctx, email)
+	// todo
+	return nil
 }
 
 // SendOrganizationInvitationEmail 发送组织邀请邮件
-func (s *emailService) SendOrganizationInvitationEmail(ctx context.Context, to, subject string, data utils.JSONMap) error {
+func (s *emailService) SendOrganizationInvitationEmail(ctx context.Context, to, subject string, data common.JSONMap) error {
 
 	emailData := &domain.Email{
 		To:         to,
 		Subject:    subject,
-		Template:   "organization_invitation",
+		Template:   domain.EmailTemplateOrganizationInvitation,
 		Data:       data,
 		Type:       domain.EmailTypeInvitation,
 		Status:     domain.EmailStatusPending,
@@ -190,15 +122,22 @@ func (s *emailService) SendOrganizationInvitationEmail(ctx context.Context, to, 
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
 	}
-	return s.SendEmail(ctx, emailData)
+	return s.sendEmail(ctx, emailData)
 }
 
 // GetEmailByID 根据ID获取邮件
 func (s *emailService) GetEmailByID(ctx context.Context, id int64) (*domain.Email, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
 	defer cancel()
+	email, err := s.emailRepo.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, domain.ErrEmailNotFound) {
+			return nil, domain.ErrEmailNotFound
+		}
+		return nil, domain.ErrInternalServerError
+	}
 
-	return s.emailRepo.GetByID(ctx, id)
+	return email, nil
 }
 
 // GetEmailsByStatus 获取指定状态的邮件列表
@@ -315,29 +254,76 @@ func (s *emailService) CleanupOldEmails(ctx context.Context, olderThanDays int) 
 	return s.emailRepo.DeleteOldEmails(ctx, cutoffTime)
 }
 
-// sendEmailAsync 异步发送邮件
-// 在后台协程中执行实际的邮件发送操作
-func (s *emailService) sendEmailAsync(email *domain.Email) {
-	ctx := context.Background()
+// sendEmail 发送邮件
+// 实现邮件发送的完整业务流程
+// 业务流程：
+// 1. 验证邮件实体
+// 2. 保存邮件到数据库
+// 3. 标记为发送中
+// 4. 调用邮件发送服务
+// 5. 更新发送状态
+func (s *emailService) sendEmail(ctx context.Context, email *domain.Email) error {
+	ctx, cancel := context.WithTimeout(ctx, s.contextTimeout)
+	defer cancel()
 
-	// 标记为发送中
-	email.MarkAsSending()
-	if err := s.emailRepo.Update(ctx, email); err != nil {
-		fmt.Printf("更新邮件状态失败: %v\n", err)
-		return
+	// 1. 验证邮件实体
+	if err := email.Validate(); err != nil {
+		fmt.Printf("邮件验证失败: %v", err)
+		return err
 	}
+
+	// 2. 设置默认值
+	if email.Status == 0 {
+		email.Status = domain.EmailStatusPending
+	}
+	if email.Priority == 0 {
+		email.Priority = domain.EmailPriorityNormal
+	}
+	if email.MaxRetries == 0 {
+		email.MaxRetries = 3
+	}
+
+	// 3. 保存邮件到数据库
+	if err := s.emailRepo.Store(ctx, email); err != nil {
+		fmt.Printf("保存邮件失败: %v", err)
+		return domain.ErrInternalServerError
+	}
+
+	// 4. 异步发送邮件
+	go s.sendEmailAsync(email)
+
+	return nil
+}
+
+// sendEmailAsync 异步发送邮件：仅负责派生上下文
+func (s *emailService) sendEmailAsync(email *domain.Email) {
+	ctx, cancel := context.WithTimeout(context.Background(), s.contextTimeout)
+	defer cancel()
+
+	s.processEmail(ctx, email)
+}
+
+// processEmail 统一的邮件发送流程
+func (s *emailService) processEmail(ctx context.Context, email *domain.Email) {
+	// 标记为发送中
+	// todo 多次更新数据库压力较大，目前只实现最后的更新状态
+	//email.MarkAsSending()
+	//if err := s.emailRepo.Update(ctx, email); err != nil {
+	//	fmt.Printf("更新邮件状态失败: %v\n", err)
+	//	return
+	//}
 
 	// 发送邮件
 	if err := s.emailSender.Send(ctx, email); err != nil {
 		// 发送失败，标记失败状态
-		email.MarkAsFailed(err.Error())
-		if updateErr := s.emailRepo.Update(ctx, email); updateErr != nil {
-			fmt.Printf("更新邮件失败状态失败: %v\n", updateErr)
-		}
+		//email.MarkAsFailed(err.Error())
+		//if updateErr := s.emailRepo.Update(ctx, email); updateErr != nil {
+		//	fmt.Printf("更新邮件失败状态失败: %v\n", updateErr)
+		//}
 		return
 	}
 
-	// 发送成功，标记成功状态
+	// 发送成功
 	email.MarkAsSent()
 	if err := s.emailRepo.Update(ctx, email); err != nil {
 		fmt.Printf("更新邮件成功状态失败: %v\n", err)

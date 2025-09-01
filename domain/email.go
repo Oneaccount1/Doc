@@ -1,7 +1,7 @@
 package domain
 
 import (
-	"DOC/pkg/utils"
+	"DOC/pkg/common"
 	"context"
 	"time"
 )
@@ -12,9 +12,9 @@ type Email struct {
 	To      string `json:"to" gorm:"type:varchar(255);not null;index"`
 	Subject string `json:"subject" gorm:"type:varchar(500);not null"`
 
-	Template string `json:"template" gorm:"type:varchar(100)"`
+	Template EmailTemplate `json:"template" gorm:"type:varchar(100)"`
 	// 模板数据
-	Data utils.JSONMap `json:"data,omitempty" gorm:"type:json;"`
+	Data common.JSONMap `json:"data,omitempty" gorm:"type:json;"`
 
 	Type     EmailType     `json:"type" gorm:"type:varchar(50);not null;index"`
 	Status   EmailStatus   `json:"status" gorm:"type:tinyint;not null;default:0;index"`
@@ -41,6 +41,18 @@ const (
 	EmailTypeMarketing    EmailType = "marketing"    // 营销邮件
 	EmailTypeSystem       EmailType = "system"       // 系统邮件
 	EmailTypeInvitation   EmailType = "invitation"   // 系统邮件
+)
+
+// EmailTemplate 验证码相关模板
+type EmailTemplate string
+
+const (
+	EmailTemplateVerificationDefault    EmailTemplate = "verification_default"
+	EmailTemplateVerificationRegister   EmailTemplate = "verification_register"
+	EmailTemplateVerificationLogin      EmailTemplate = "verification_login"
+	EmailTemplateWelcome                EmailTemplate = "welcome"
+	EmailTemplateOrganizationInvitation EmailTemplate = "organization_invitation"
+	EmailTemplatePasswordReset          EmailTemplate = "password_reset"
 )
 
 // EmailStatus 邮件状态枚举
@@ -167,18 +179,13 @@ type EmailRepository interface {
 }
 
 // EmailUsecase 邮件业务逻辑接口
-// 定义邮件相关的所有业务用例，遵循Clean Architecture原则
+// 定义邮件相关的所有业务用例
 type EmailUsecase interface {
-	// 基础邮件操作
-	SendEmail(ctx context.Context, email *Email) error
-
-	// 特定类型邮件发送
-	// todo检查对应模板 所需要的数据
 	SendVerificationEmail(ctx context.Context, to, code string) error
 	SendWelcomeEmail(ctx context.Context, to, username string) error
 	SendNotificationEmail(ctx context.Context, to, subject, content string) error
 	SendSystemEmail(ctx context.Context, to, subject, content string) error
-	SendOrganizationInvitationEmail(ctx context.Context, to, subject string, data utils.JSONMap) error
+	SendOrganizationInvitationEmail(ctx context.Context, to, subject string, data common.JSONMap) error
 
 	// 邮件管理
 	GetEmailByID(ctx context.Context, id int64) (*Email, error)
